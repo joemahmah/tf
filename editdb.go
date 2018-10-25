@@ -88,7 +88,7 @@ func GetTagsForFile(file int) ([]string, error) {
 	for rows.Next() {
 		var tag string
 		if err = rows.Scan(&tag); err != nil {
-			return tags, nil
+			return tags, err
 		}
 		tags = append(tags, tag)
 	}
@@ -96,8 +96,26 @@ func GetTagsForFile(file int) ([]string, error) {
 	return tags, nil
 }
 
-func GetFilesForTag(tag string) ([]string, error) {
-	return make([]string, 0), nil
+func GetFilesForTag(tag int) ([]string, error) {
+	files := make([]string, 0)
+
+	statement, err := DB.Prepare("SELECT files.filepath FROM files JOIN filetags on files.id=filetags.file_id WHERE filetags.tag_id=$1")
+
+	rows, err := statement.Query(tag)
+	if err != nil {
+		return files, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var file string
+		if err = rows.Scan(&file); err != nil {
+			return files, err
+		}
+		files = append(files, file)
+	}
+
+	return files, nil
 }
 
 func GetFile(path string) (int, error) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"path/filepath"
 )
 
 //Handles CLI input.
@@ -17,10 +18,10 @@ func ProcessCli() {
 	//untagCmd := flag.NewFlagSet("untag", flag.ExitOnError)
 	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
 
-	/*lstagCmd := flag.NewFlagSet("lstag", flag.ExitOnError)
+	lstagCmd := flag.NewFlagSet("lstag", flag.ExitOnError)
 
 	lsCmd := flag.NewFlagSet("ls", flag.ExitOnError)
-	mvCmd := flag.NewFlagSet("mv", flag.ExitOnError)
+	/*mvCmd := flag.NewFlagSet("mv", flag.ExitOnError)
 	cpCmd := flag.NewFlagSet("cp", flag.ExitOnError)
 
 	mvtagCmd := flag.NewFlagSet("mvtag", flag.ExitOnError)
@@ -40,6 +41,12 @@ func ProcessCli() {
 		case "list":
 			listCmd.Parse(os.Args[2:])
 			ProcessListCmd(listCmd.Args())
+		case "lstag":
+			lstagCmd.Parse(os.Args[2:])
+			ProcessLstagCmd(lstagCmd.Args())
+		case "ls":
+			lsCmd.Parse(os.Args[2:])
+			ProcessLsCmd(lsCmd.Args())
 	}
 
 }
@@ -66,6 +73,12 @@ func ProcessTagCmd(tags string, args []string) {
 
 	//handle each file
 	for _, filepath := range args {
+		//Check if file exists; if not ignore
+		if _, err := os.Stat(filepath); os.IsNotExist(err){
+			fmt.Println(filepath + " does not exist.")
+			continue
+		}
+
 		AddFile(filepath)
 		fid, err := GetFile(filepath)
 		if err != nil {
@@ -82,6 +95,12 @@ func ProcessTagCmd(tags string, args []string) {
 
 func ProcessListCmd(args []string) {
 	for _, filepath := range args {
+		//Check if file exists; if not ignore
+		if _, err := os.Stat(filepath); os.IsNotExist(err){
+			fmt.Println(filepath + ": file does not exist")
+			continue
+		}
+
 		fid, err := GetFile(filepath)
 		if err != nil {
 			fmt.Println(filepath + ": file not tagged")
@@ -91,5 +110,69 @@ func ProcessListCmd(args []string) {
 		//Get tags
 		tags, err := GetTagsForFile(fid)
 		fmt.Println(filepath + ": ", tags)
+	}
+}
+
+func ProcessLstagCmd(args []string) {
+	for _, tag := range args {
+		tid, err := GetTag(tag)
+		if err != nil {
+			fmt.Println(tag + ": tag does not exist")
+			continue
+		}
+
+		//Get files
+		files, err := GetFilesForTag(tid)
+		fmt.Println(tag + ": ")
+		for _, file := range files {
+			fmt.Println("\t" + file)
+		}
+	}
+}
+
+func ProcessLsCmd(args []string) {
+	//If no directory is given, use current one
+	if len(args) <= 0 {
+		args = append(args, ".")
+	}
+
+	for _, dir := range args {
+		//Check if exists
+		if _, err := os.Stat(dir); os.IsNotExist(err){
+			fmt.Println(dir + ": directory does not exist")
+			continue
+		}
+
+		//Checking if directory
+		file, err := os.Open(dir)
+		defer file.Close()
+		if err != nil {
+			fmt.Println(dir + ": unable to open")
+			continue
+		}
+
+		fileInfo, err := file.Stat()
+		if err != nil {
+			fmt.Println(dir + ": error reading")
+			continue
+		}
+
+		//actual check
+		if !fileInfo.IsDir() {
+			fmt.Println(dir + ": not a directory")
+			continue
+		}
+
+
+		//perform ls for all files
+		fmt.Println("Directory " + dir + ":\n---------")
+		filesInfo, err := file.Readdir(-1)
+		filePaths := make([]string, 0)
+		for _, subfileInfo := range filesInfo {
+			filePaths = append(filePaths, filepath.Join(dir,subfileInfo.Name()))
+		}
+		//pass the file list over to list function
+		ProcessListCmd(filePaths)
+		fmt.Println("")
 	}
 }

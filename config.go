@@ -58,7 +58,6 @@ func LoadConfig() error {
 	}
 
 	//Load config
-	fmt.Println("Loading config file.")
 	configFile, err := os.Open(configFilePath)
 
 	if err != nil {
@@ -75,7 +74,6 @@ func LoadConfig() error {
 	//Load DB
 	dbFilePath := filepath.Join(configDirPath, Config.DBPath)
 
-	fmt.Println("Loading database.")
 	err = LoadDB(dbFilePath)
 
 	return err
