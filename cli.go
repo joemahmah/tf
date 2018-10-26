@@ -13,9 +13,11 @@ import (
 func ProcessCli() {
 
 	tagCmd := flag.NewFlagSet("tag", flag.ExitOnError)
-	var tags = tagCmd.String("t", "", "Tag(s) to be added.")
+	var tagTags = tagCmd.String("t", "", "Tag(s) to be added.")
 
-	//untagCmd := flag.NewFlagSet("untag", flag.ExitOnError)
+	untagCmd := flag.NewFlagSet("untag", flag.ExitOnError)
+	var untagTags = untagCmd.String("t", "", "Tag(s) to be removed.")
+
 	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
 
 	lstagCmd := flag.NewFlagSet("lstag", flag.ExitOnError)
@@ -37,7 +39,10 @@ func ProcessCli() {
 	switch os.Args[1] {
 		case "tag":
 			tagCmd.Parse(os.Args[2:])
-			ProcessTagCmd(*tags, tagCmd.Args())
+			ProcessTagCmd(*tagTags, tagCmd.Args())
+		case "untag":
+			untagCmd.Parse(os.Args[2:])
+			ProcessUntagCmd(*untagTags, untagCmd.Args())
 		case "list":
 			listCmd.Parse(os.Args[2:])
 			ProcessListCmd(listCmd.Args())
@@ -91,6 +96,38 @@ func ProcessTagCmd(tags string, args []string) {
 		TagFile(fid, tidlist...)
 	}
 
+}
+
+func ProcessUntagCmd(tags string, args []string) {
+	//Check for errors
+	if len(args) < 1 { //check if files passed
+		fmt.Println("Need at least one file...")
+		return
+	}
+
+	for _, filepath := range args {
+		//Check if file exists; if not ignore
+		if _, err := os.Stat(filepath); os.IsNotExist(err){
+			fmt.Println(filepath + " does not exist.")
+			continue
+		}
+
+		AddFile(filepath)
+		fid, err := GetFile(filepath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		if tags == "" { //if no tags entered, remove all tags
+			UntagAllFile(fid)
+		} else { //remove specified tags
+			taglist := strings.Fields(tags)
+			tidlist, _ := GetTags(taglist...)
+			UntagFile(fid, tidlist...)
+		}
+
+	}
 }
 
 func ProcessListCmd(args []string) {

@@ -2,9 +2,13 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 )
 
 func AddTag(tag string) error {
+	//convert tag to lowercase
+	tag = strings.ToLower(tag)
+
 	tid, _ := GetTag(tag)
 
 	//If tag already exists, don't touch anything
@@ -70,8 +74,54 @@ func TagFile(file int, tags ...int) error {
 	return nil
 }
 
+//Deletes specified tags from file; untracks file if all tags removed
 func UntagFile(file int, tags ...int) error {
+	statement, err := DB.Prepare("DELETE FROM filetags where file_id=$1 AND tag_id=$2")
+	if err != nil {
+		return err
+	}
+
+	//untag each tag
+	for _, tid := range tags {
+		_, err = statement.Exec(file, tid)
+		if err != nil {
+			return err
+		}
+	}
+
+	//Check if all tags removed; if so untrack
+	taglist, _ := GetTagsForFile(file)
+	if len(taglist) <= 0 {
+		statement, err = DB.Prepare("DELETE FROM files WHERE id=$1")
+		if err != nil {
+			return err
+		}
+
+		_, err = statement.Exec(file)
+	}
+
 	return nil
+}
+
+//Deletes all tags from file and untracks file
+func UntagAllFile(file int) error {
+	statement, err := DB.Prepare("DELETE FROM filetags WHERE file_id=$1")
+	if err != nil {
+		return err
+	}
+
+	_, err = statement.Exec(file)
+	if err != nil {
+		return err
+	}
+
+	statement, err = DB.Prepare("DELETE FROM files WHERE id=$1")
+	if err != nil {
+		return err
+	}
+
+	_, err = statement.Exec(file)
+	return err
 }
 
 func GetTagsForFile(file int) ([]string, error) {
@@ -140,6 +190,9 @@ func GetFile(path string) (int, error) {
 }
 
 func GetTag(tag string) (int, error) {
+	//convert to lowercase
+	tag = strings.ToLower(tag)
+
 	statement, err := DB.Prepare("SELECT id FROM tags WHERE tag = $1")
 	if err != nil {
 		return -1, err
@@ -153,6 +206,23 @@ func GetTag(tag string) (int, error) {
 
 	return id, err
 
+}
+
+func GetTags(tags ...string) ([]int, error) {
+	tids := make([]int, 0)
+
+	for _, tag := range tags {
+		tid, err := GetTag(tag)
+		if tid == -1 { //If tag does not exist, skip
+			continue
+		} else if err != nil {
+			return tids, nil
+		}
+
+		tids = append(tids, tid)
+	}
+
+	return tids, nil
 }
 
 func GetOrCreateTags(tags ...string) ([]int, error) {
