@@ -1,12 +1,12 @@
 package main
 
 import (
-	"os/user"
-	"os"
-	"path/filepath"
-	"encoding/json"
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"os"
+	"os/user"
+	"path/filepath"
 
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
@@ -41,7 +41,7 @@ func LoadConfig() error {
 	configDirPath := filepath.Join(homeDir, ConfigDirName)
 
 	//Create folder if needed
-	if _,err = os.Stat(configDirPath); os.IsNotExist(err){
+	if _, err = os.Stat(configDirPath); os.IsNotExist(err) {
 		fmt.Println("No config folder detected...\nCreated config folder.")
 		os.Mkdir(configDirPath, 0770)
 	}
@@ -49,7 +49,7 @@ func LoadConfig() error {
 	configFilePath := filepath.Join(configDirPath, "config.json")
 
 	//create config if needed
-	if _,err = os.Stat(configFilePath); os.IsNotExist(err){
+	if _, err = os.Stat(configFilePath); os.IsNotExist(err) {
 		fmt.Println("No config file detected...\nCreating config file.")
 		err = CreateConfig(configFilePath)
 		if err != nil {

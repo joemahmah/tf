@@ -33,7 +33,6 @@ func main() {
 	ProcessCli()
 }
 
-
 ///Helpers
 func FormatSize(size int64) string {
 

@@ -12,7 +12,7 @@ func AddTag(tag string) error {
 	tid, _ := GetTag(tag)
 
 	//If tag already exists, don't touch anything
-	if tid != -1{
+	if tid != -1 {
 		return nil
 	}
 
