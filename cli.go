@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,13 +26,15 @@ func ProcessCli() {
 	lstagCmd := flag.NewFlagSet("lstag", flag.ExitOnError)
 
 	lsCmd := flag.NewFlagSet("ls", flag.ExitOnError)
-	/*mvCmd := flag.NewFlagSet("mv", flag.ExitOnError)
+	mvCmd := flag.NewFlagSet("mv", flag.ExitOnError)
 	cpCmd := flag.NewFlagSet("cp", flag.ExitOnError)
+	rmCmd := flag.NewFlagSet("rm", flag.ExitOnError)
 
-	mvtagCmd := flag.NewFlagSet("mvtag", flag.ExitOnError)
-	cptagCmd := flag.NewFlagSet("cptag", flag.ExitOnError)
-	rmtagCmd := flag.NewFlagSet("rmtag", flag.ExitOnError)
-	mergetagCmd := flag.NewFlagSet("mergetag", flag.ExitOnError)
+	/*
+		mvtagCmd := flag.NewFlagSet("mvtag", flag.ExitOnError)
+		cptagCmd := flag.NewFlagSet("cptag", flag.ExitOnError)
+		rmtagCmd := flag.NewFlagSet("rmtag", flag.ExitOnError)
+		mergetagCmd := flag.NewFlagSet("mergetag", flag.ExitOnError)
 	*/
 	if len(os.Args) == 1 {
 		fmt.Println("usage: tf <command>")
@@ -54,6 +57,16 @@ func ProcessCli() {
 	case "ls":
 		lsCmd.Parse(os.Args[2:])
 		ProcessLsCmd(lsCmd.Args())
+	case "mv":
+		mvCmd.Parse(os.Args[2:])
+		ProcessMvCmd(mvCmd.Args())
+	case "cp":
+		cpCmd.Parse(os.Args[2:])
+		ProcessCpCmd(cpCmd.Args())
+	case "rm":
+		rmCmd.Parse(os.Args[2:])
+		ProcessRmCmd(rmCmd.Args())
+
 	}
 
 }
@@ -265,6 +278,154 @@ func ProcessLsCmd(args []string) {
 		ProcessListCmd(filePaths)
 		fmt.Println("")
 	}
+}
+
+func ProcessMvCmd(args []string) {
+	//Check if at least two arguments
+	if len(args) != 2 {
+		fmt.Println("Need exactly one source and one destination.")
+		return
+	}
+
+	//Get paths
+	srcPath := args[0]
+	destPath := args[1]
+
+	//Rename
+	err := os.Rename(srcPath, destPath)
+	if err != nil {
+		fmt.Println(srcPath+": ", err)
+		return
+	}
+
+	//Get source file id
+	srcFid, err := GetFile(srcPath)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	//Get destination file id
+	AddFile(destPath)
+	destFid, err := GetFile(destPath)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	//Copy tags
+	err = CopyTagFile(srcFid, destFid)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	//Untag old file
+	UntagAllFile(srcFid)
+}
+
+func ProcessRmCmd(args []string) {
+	//Check for at least one arguments
+	if len(args) < 1 {
+		fmt.Println("Need at least one file.")
+		return
+	}
+
+	//Get paths
+	paths := args
+
+	for _, path := range paths {
+		//delete
+		err := os.Remove(path)
+		if err != nil {
+			fmt.Println(path+": ", err)
+			return
+		}
+
+		//Get file id
+		fid, err := GetFile(path)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		//Untag file
+		UntagAllFile(fid)
+	}
+}
+
+func ProcessCpCmd(args []string) {
+
+	//Check if at least two arguments
+	//If not, error out
+	if len(args) < 2 {
+		fmt.Println("Need at least one source and one destination.")
+		return
+	}
+
+	sourceFile, fileInfo, err := OpenFile(args[0]) //Open file
+	if err != nil {
+		fmt.Println(args[0] + ": cannot open file")
+		return
+	}
+	defer sourceFile.Close()
+
+	//Cannot copy directories
+	if fileInfo.IsDir() {
+		fmt.Println(args[0] + ": cannot copy directory")
+		return
+	}
+
+	//Get source file id
+	srcFid, err := GetFile(args[0])
+	if err != nil {
+		fmt.Println(args[0] + ": file not tagged.")
+		return
+	}
+
+	//Get destination list
+	destinations := args[1:]
+
+	//Handle each copy
+	for _, destinationPath := range destinations {
+		//Open/create destination file
+		destinationFile, err := os.OpenFile(destinationPath, os.O_RDWR|os.O_CREATE, fileInfo.Mode())
+		if err != nil {
+			fmt.Println("Error creating/opening file ", destinationPath, ": ", err)
+			continue
+		}
+		defer destinationFile.Close()
+
+		//Perform copy
+		_, err = io.Copy(destinationFile, sourceFile)
+		if err != nil {
+			fmt.Println("Unable to copy file to ", destinationPath)
+			continue
+		}
+
+		//Reset source file
+		_, err = sourceFile.Seek(0, 0)
+		if err != nil {
+			fmt.Println("Seek failed on source file.")
+			break //Break since seek failed; creating all other files will also fail.
+		}
+
+		//Copy tags
+		AddFile(destinationPath)
+		destFid, err := GetFile(destinationPath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		err = CopyTagFile(srcFid, destFid)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+	}
+
 }
 
 //returns the file, fileinfo, error

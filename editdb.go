@@ -74,6 +74,16 @@ func TagFile(file int, tags ...int) error {
 	return nil
 }
 
+func CopyTagFile(source int, destination int) error {
+	statement, err := DB.Prepare("INSERT INTO filetags (file_id, tag_id) SELECT $1, tag_id FROM filetags WHERE file_id = $2")
+	if err != nil {
+		return err
+	}
+
+	_, err = statement.Exec(destination, source)
+	return err
+}
+
 //Deletes specified tags from file; untracks file if all tags removed
 func UntagFile(file int, tags ...int) error {
 	statement, err := DB.Prepare("DELETE FROM filetags where file_id=$1 AND tag_id=$2")
